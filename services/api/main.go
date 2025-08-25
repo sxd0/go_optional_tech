@@ -29,10 +29,11 @@ func main() {
 	addr := getenv("HTTP_ADDR", ":8080")
 
 	writer := &kafka.Writer{
-		Addr:         kafka.TCP(broker),
-		Topic:        topic,
-		Balancer:     &kafka.LeastBytes{},
-		RequiredAcks: kafka.RequireOne,
+		Addr:                   kafka.TCP(broker),
+		Topic:                  topic,
+		Balancer:               &kafka.LeastBytes{},
+		RequiredAcks:           kafka.RequireAll,
+		AllowAutoTopicCreation: true,
 	}
 
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
@@ -53,12 +54,14 @@ func main() {
 		}
 		body, _ := json.Marshal(e)
 
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		if err := writer.WriteMessages(ctx, kafka.Message{Value: body}); err != nil {
+			log.Println("kafka write failed:", err)
 			http.Error(w, "kafka write failed: "+err.Error(), http.StatusBadGateway)
 			return
 		}
+		log.Printf("published event type=%q size=%d", e.Type, len(body))
 		w.WriteHeader(http.StatusAccepted)
 	})
 

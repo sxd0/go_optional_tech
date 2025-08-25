@@ -25,7 +25,21 @@ services:
       start_period: 20s
       retries: 60
 
-
+  topic-init:
+    image: bitnami/kafka:3.7
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash","-lc"]
+    command:
+      - |
+        set -e
+        echo "waiting kafka..."
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null
+        echo "creating topic 'events'..."
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic events --partitions 1 --replication-factor 1
+        echo "done."
+    restart: "no"
 
   redis:
     image: redis:7
@@ -53,7 +67,9 @@ services:
       - REDIS_ADDR=redis:6379
     depends_on:
       kafka:
-        condition: service_healthy
+        condition: service_started
+      topic-init:
+        condition: service_completed_successfully
       redis:
         condition: service_started
 
@@ -62,8 +78,10 @@ services:
     environment:
       - REDIS_ADDR=redis:6379
       - HTTP_ADDR=:8082
+      - GRPC_ADDR=:9090
     ports:
       - "8082:8082"
+      - "9090:9090"
     depends_on:
       redis:
         condition: service_started

@@ -34,13 +34,17 @@ func main() {
 	ctx := context.Background()
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        []string{broker},
-		Topic:          topic,
-		GroupID:        group,
-		CommitInterval: time.Second,
-		MinBytes:       1,
-		MaxBytes:       10e6,
+		Brokers:               []string{broker},
+		GroupID:               group,
+		GroupTopics:           []string{topic},
+		WatchPartitionChanges: true,
+		CommitInterval:        time.Second,
+		MinBytes:              1,
+		MaxBytes:              10e6,
+		Logger:                log.New(os.Stdout, "kafka-reader ", log.LstdFlags),
+		ErrorLogger:           log.New(os.Stderr, "kafka-reader-err ", log.LstdFlags),
 	})
+	defer reader.Close()
 
 	log.Println("worker consuming", topic, "from", broker, "as group", group, "→ redis", redisAddr)
 
@@ -56,16 +60,23 @@ func main() {
 			log.Println("bad event json:", err)
 			continue
 		}
+		log.Printf("consumed offset=%d type=%q", m.Offset, e.Type)
+
 		typ := e.Type
 		if typ == "" {
 			typ = "unknown"
 		}
 		if err := rdb.Incr(ctx, "events:count:"+typ).Err(); err != nil {
 			log.Println("redis INCR error:", err)
+		} else {
+			log.Printf("incr ok key=events:count:%s", typ)
 		}
+
 		raw := string(m.Value)
 		if err := rdb.LPush(ctx, "events:recent", raw).Err(); err != nil {
 			log.Println("redis LPUSH error:", err)
+		} else {
+			log.Printf("lpush ok key=events:recent")
 		}
 		if err := rdb.LTrim(ctx, "events:recent", 0, int64(keepN-1)).Err(); err != nil {
 			log.Println("redis LTRIM error:", err)
