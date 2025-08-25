@@ -10,5 +10,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o app .
 FROM gcr.io/distroless/base-debian12
 WORKDIR /
 COPY --from=build /src/app /app
-EXPOSE 8082
+EXPOSE 8082 9090
 ENTRYPOINT ["/app"]
