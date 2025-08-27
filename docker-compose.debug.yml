@@ -1,0 +1,16 @@
+services:
+  kafka:
+    ports:
+      - "19092:9092"
+
+  redis:
+    ports:
+      - "16379:6379"
+
+  api:
+    ports:
+      - "18080:8080"
+
+  report:
+    ports:
+      - "18081:8081"

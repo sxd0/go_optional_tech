@@ -1,10 +1,11 @@
-module go_optional_tech/services/worker
+module go_optional_tech
 
-go 1.22
+go 1.22.0
 
 require (
-	github.com/redis/go-redis/v9 v9.6.1
+	github.com/redis/go-redis/v9 v9.5.1
 	github.com/segmentio/kafka-go v0.4.47
+	golang.org/x/net v0.17.0
 )
 
 require (

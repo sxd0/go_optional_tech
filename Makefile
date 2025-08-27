@@ -1,29 +1,24 @@
-.PHONY: up down logs ps publish stats recent restart
+.PHONY: up up-debug down logs logs50 ps rebuild
 
-COMPOSE=deploy/docker-compose.yml
+PROJECT=goopt
 
 up:
-	docker compose -f $(COMPOSE) up --build -d
+	docker compose -p $(PROJECT) up -d --build
+
+up-debug:
+	docker compose -p $(PROJECT) -f docker-compose.yml -f docker-compose.debug.yml up -d --build
 
 down:
-	docker compose -f $(COMPOSE) down -v
+	docker compose -p $(PROJECT) down -v
 
 logs:
-	docker compose -f $(COMPOSE) logs -f --tail=200
+	docker compose -p $(PROJECT) logs -f --tail=200
+
+logs50:
+	docker compose -p $(PROJECT) logs --tail=50
 
 ps:
-	docker compose -f $(COMPOSE) ps
+	docker compose -p $(PROJECT) ps
 
-restart:
-	docker compose -f $(COMPOSE) restart
-
-publish:
-	curl -s -X POST http://localhost:8080/events \
-	  -H "Content-Type: application/json" \
-	  -d '{"type":"signup","payload":{"user":"alice"}}' | cat
-
-stats:
-	curl -s http://localhost:8082/stats | jq .
-
-recent:
-	curl -s http://localhost:8082/events | jq .
+rebuild:
+	docker compose -p $(PROJECT) build --no-cache
