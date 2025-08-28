@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package stats.v1;
+
+option go_package = "go_optional_tech/proto/gen/go/stats/v1;statsv1";
+
+message Empty {}
+
+message GetStatsResponse {
+  map<string, string> counts = 1; // action -> count (как Redis HGETALL возвращает строки)
+}
+
+message GetUserLastActionRequest {
+  uint32 user_id = 1;
+}
+
+message GetUserLastActionResponse {
+  string user_id = 1;
+  string last_action = 2;
+}
+
+service StatsService {
+  rpc GetStats(Empty) returns (GetStatsResponse);
+  rpc GetUserLastAction(GetUserLastActionRequest) returns (GetUserLastActionResponse);
+}

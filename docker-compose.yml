@@ -22,7 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: ["redis-server", "--save", "", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "PING"]
       interval: 5s
@@ -42,12 +42,42 @@ services:
       KAFKA_BROKER_ADDR: kafka:9092
       REDIS_ADDR: redis:6379
 
+  topic-init:
+    image: bitnami/kafka:3.7
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -lc '
+        set -euo pipefail
+        echo "[topic-init] waiting Kafka API..."
+        for i in {1..60}; do
+          if /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; then
+            break
+          fi
+          echo "[topic-init] not ready yet ($i)"; sleep 1
+        done;
+        echo "[topic-init] creating topic if not exists..."
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+          --create --if-not-exists --topic events --replication-factor 1 --partitions 1
+        echo "[topic-init] topic events ready"
+        tail -f /dev/null
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic events >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
   aggregator:
     build:
       context: .
       dockerfile: Dockerfile.aggregator
     depends_on:
       kafka:
+        condition: service_healthy
+      topic-init:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -69,6 +99,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports: ["18090:8080"]
+    depends_on:
+      kafka:
+        condition: service_healthy
 
 networks:
   default:
