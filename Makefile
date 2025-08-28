@@ -31,7 +31,7 @@ gen:
 
 seed:
 	curl -s -X POST http://localhost:18080/v1/publish -H 'content-type: application/json' -d '{"user_id":1,"action":"click"}' >/dev/null
-	curl -s -X POST http://localhost:18080/v1/publish -H 'content-type: application/json' -d '{"user_id":1,"action":"view"}' >/dev/null
+	curl -s -X POST http://localhost:18080/v1/publish -H 'content-type: application/json' -d '{"user_id":1,"action":"view"}'  >/dev/null
 
 grpc-stats:
 	grpcurl -plaintext -d '{}' localhost:19090 stats.v1.StatsService/GetStats
@@ -39,3 +39,20 @@ grpc-stats:
 grpc-user:
 	grpcurl -plaintext -d '{"userId":1}' localhost:19090 stats.v1.StatsService/GetUserLastAction
 
+rest-stats:
+	curl -s http://localhost:18081/v1/stats
+
+diag-kafka:
+	docker compose -p goopt exec -T kafka bash -lc "/opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic events --from-beginning --timeout-ms 2000 || true"
+
+diag-redis:
+	docker compose -p goopt exec -T redis redis-cli HGETALL stats:action
+
+test-smoke: seed
+	@echo "== gRPC stats ==" && $(MAKE) --no-print-directory grpc-stats
+	@echo "== gRPC user =="  && $(MAKE) --no-print-directory grpc-user
+	@echo "== REST stats ==" && $(MAKE) --no-print-directory rest-stats
+	@echo "== Redis =="      && $(MAKE) --no-print-directory diag-redis
+
+test-reset:
+	docker compose -p goopt exec -T redis redis-cli FLUSHALL
